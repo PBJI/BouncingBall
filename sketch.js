@@ -1,6 +1,6 @@
 
-const colorItRand = colorChange();
-const translateIt = moveIt();
+const colorItRand = controlColor();
+const controlIt = controlSphere();
 let sphereRadius;
 let prevClicked = {x:null, y:null};
 let spheresList = []
@@ -23,7 +23,7 @@ function draw() {
 
 function drawSpheres() {
   push();
-  translateIt(width / 2 - sphereRadius, height / 2 - sphereRadius);
+  controlIt(width / 2 - sphereRadius, height / 2 - sphereRadius);
   sphere(sphereRadius, 15, 15);
   pop();
   if (prevClicked.x != null && prevClicked.y != null) {
@@ -34,46 +34,22 @@ function drawSpheres() {
 }
 
 
-/**
- * Description
- * @returns {void}
- */
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight, true);
-  sphereRadius = min(width/10, height/10);
-  ortho(-width / 2, width / 2, -height / 2, height / 2, 0, 1000);
-}
-
-
-function mouseClicked() {
-  prevClicked['x'] = mouseX - width/2;
-  prevClicked['y'] = mouseY - height/2;
-  prevClicked['x'] += mouseX - width/2 > 0 ? - sphereRadius / 4 : sphereRadius / 4;
-  prevClicked['y'] += mouseY - height/2 > 0 ? - sphereRadius / 4 : sphereRadius / 4;
-}
 
 
 /**
  * Description
  * @returns {void}
  */
-function moveIt() {
+function controlSphere() {
   let position = {x:0, y:0};
-  let dir = {x: 1, y: 1}; // 1 means right, 1 means down, -1 means left, -1 means up.
-  //Normally, the direction vector should have equal magnitudes of pointers.
-  let speed = {x: 10, y: 20}; // Sets the ball speed in horizontal and vertical direction
+  let dir = {x: 1, y: 1}; 
+  let speed = {x: 10, y: 20};
   
-  return function translateIt(maxDistHor = 0, maxDistVer = 0) {
+  return function controlIt(maxDistHor = 0, maxDistVer = 0) {
     let inc = deltaTime / 60;
 
     /**
-     * Description
-     * detectHorBound (function) @ returns [any, any]
-     * [0] --> left
-     * [1] --> right 
-     * detectVerBound (function) @ returns [any, any]
-     * [0] --> bottom
-     * [1] --> up
+     * 
      * @returns [detectHorBound, detectVerBound]
      */
     function detectBound() {
@@ -98,16 +74,16 @@ function moveIt() {
       return [detectHorBound, detectVerBound];
     }
     const [hor, ver] = detectBound();
-
+    
     /**
      * Description
      * @param {Boolean} clear
      * @returns {[prevClicked.x, prevClicked.y]}
-     */
-    function detectClick(clear) {
-      function deleteClickHistory() {
-        prevClicked['x'] = null;
-        prevClicked['y'] = null;
+    */
+   function detectClick(clear) {
+     function deleteClickHistory() {
+       prevClicked['x'] = null;
+       prevClicked['y'] = null;
       }
       
       let result;
@@ -126,14 +102,14 @@ function moveIt() {
     function setSpeed() {
       let xDist = Math.abs(position['x'] - prevClicked['x'] );
       let yDist = Math.abs(position['y'] - prevClicked['y'] );
-
+      
       let totalDist = Math.sqrt(xDist ** 2 + yDist ** 2);
-
+      
       let totalTime = totalDist * inc / 10;
       speed.x = xDist / totalTime;
       speed.y = yDist / totalTime;
     }
-
+    
     function setDir() {
       dir.x = position.x - prevClicked.x > 0 ? -1 : 1;
       dir.y = position.y - prevClicked.y > 0 ? -1 : 1;
@@ -146,12 +122,12 @@ function moveIt() {
     
     /**
      * Description
-     * @param {[any, any]} hor_result
-     * @param {[any, any]} ver_result
+     * @param {[any, any]} touchHorizontal
+     * @param {[any, any]} touchVertical
      * @returns {void}
     */
-    function shiftBall(hor_result, ver_result) {
-      if (hor_result[0] == true) {
+    function shiftBall(touchHorizontal, touchVertical) {
+      if (touchHorizontal[0] == true) {
         if (detectClick()[0] != null) {
           boundAndShift();
           detectClick(clear);
@@ -159,7 +135,7 @@ function moveIt() {
           dir.x = 1;
           speed.x = 10; //Hardcoded speed
         }
-      } else if (hor_result[1] == true) {
+      } else if (touchHorizontal[1] == true) {
         if (detectClick()[0] != null) {
           boundAndShift();
           detectClick(clear);
@@ -168,7 +144,7 @@ function moveIt() {
           speed.x = 10; //Hardcoded speed
         }
       }
-      if (ver_result[0] == true) {
+      if (touchVertical[0] == true) {
         if (detectClick()[1] != null) {
           boundAndShift();
           detectClick(clear);
@@ -176,7 +152,7 @@ function moveIt() {
           dir.y = 1;
           speed.y = 10; //Hardcoded speed
         }
-      } else if (ver_result[1] == true) {
+      } else if (touchVertical[1] == true) {
         if (detectClick()[1] != null) {
           boundAndShift();
           detectClick(clear);
@@ -185,24 +161,24 @@ function moveIt() {
           speed.y = 10; //Hardcoded speed
         }
       }
-      // console.log(inc, dir.x, speed.x, position.x, maxDistHor);
-      // console.log(inc, dir.y, speed.y, position.y, maxDistVer);
       position.x+= inc * dir.x * speed.x;
       position.y += inc * dir.y * speed.y;
     }
-    // console.log(setSlope());
     shiftBall(hor(), ver())
-    // console.log(position.x, position.y, maxDistHor, maxDistVer);
     translate(position.x, position.y, 0);
   }
 }
 
 /**
- * Description
+ * Returns a function with some variables as closures to keep the 
+ * color states persistent, it is basically a gradient color changer
+ * that can be used to change color of any p5js shape at each new frame
+ * during draw loop. At each iteration the RGB values are incremented by
+ * fractions to make it seem smooth. 
  * @returns {function}
  */
-function colorChange() {
-  // Configuration ( a lot of configuration )
+function controlColor() {
+  // Configuration settings
   let color = [50, 50, 50];
   let rInc = 33;
   let bInc = 66;
@@ -210,17 +186,21 @@ function colorChange() {
   let rIncDir = 1;
   let bIncDir = 1;
   let gIncDir = 1;
-  let range = [0, 100] // Only work till 0, 155. 1st should be less than 2nd + multiplier * 2
-
+  let range = [0, 100] 
+  // Only work till 0, 155. 1st should be less than 2nd + multiplier * 2
+  
   /**
-   * Description
+   * Returns the next color scheme for the shape, uses closed values set
+   * above as a reference. The RGB values bounce between a set range + initial
+   * values, the toggle direction function is the control function. while rest
+   * of the logic is used to keep incrementing the colors by fractions.
    * @returns {array[3]}
    */
   return function colorIt() {
     let inc_one = millis() / 1000 % 1 + 1;
     
     // console.log(inc_one);
-
+    
     let multiplier = Math.random() * 6 + 2;
     
     function toggleDirection(inc, dir) {
@@ -229,17 +209,17 @@ function colorChange() {
       }
       return dir;
     }
-
+    
     rIncDir = toggleDirection(rInc, rIncDir);
     bIncDir = toggleDirection(bInc, bIncDir);
     gIncDir = toggleDirection(gInc, gIncDir);
-
+    
     if (rIncDir == 1) {
       rInc = (rInc + inc_one * multiplier * Math.random())%range[1];
     } else {
       rInc = (rInc - inc_one * multiplier * Math.random())%range[1];
     }
-
+    
     if (bIncDir == 1) {      
       bInc = (bInc + inc_one * multiplier * Math.random())%range[1];
     } else {
@@ -251,8 +231,37 @@ function colorChange() {
     } else {
       gInc = (gInc - inc_one * multiplier * Math.random())%range[1];
     }
-
-    // console.log(color[0] + rInc, color[1] + bInc, color[2] + gInc);
+    
     return [color[0] + rInc, color[1] + bInc, color[2] + gInc];
   }
+}
+
+
+/**
+ * This function is called internally by p5.js when the browser
+ * window is resized. It tries to change the sphere radius with change 
+ * on size of window browser.
+ * @returns {void}
+ */
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight, true);
+  sphereRadius = min(width/10, height/10);
+  ortho(-width / 2, width / 2, -height / 2, height / 2, 0, 1000);
+}
+
+
+
+/**
+ * This function is called internally by p5.js when the browser window
+ * is resized. It tries to change the global variable {prevClicked} to
+ * the mouse clicked mouse position. As WEBGL uses the center of screen
+ * as origin and the mouse clicks are recorded with origin as the left corner
+ * a little bit adjustment is made here.
+ * @returns {void}
+ */
+function mouseClicked() {
+  prevClicked['x'] = mouseX - width/2;
+  prevClicked['y'] = mouseY - height/2;
+  prevClicked['x'] += mouseX - width/2 > 0 ? - sphereRadius / 4 : sphereRadius / 4;
+  prevClicked['y'] += mouseY - height/2 > 0 ? - sphereRadius / 4 : sphereRadius / 4;
 }
